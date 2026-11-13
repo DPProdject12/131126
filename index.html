@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bus Simulator — тренажёр по архитектуре шин</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ===================== МОДУЛЬ 0: ИДЕНТИФИКАЦИЯ СТУДЕНТА ===================== -->
+<div id="identOverlay" class="ident-overlay">
+  <div class="ident-card">
+    <h1>Bus Simulator</h1>
+    <p class="ident-subtitle">Интерактивный тренажёр по архитектуре шин адреса, данных и управления<br>
+    Дисциплина: «Архитектура аппаратных средств»</p>
+    <div class="field-group">
+      <label for="identFio">ФИО студента *</label>
+      <input type="text" id="identFio" placeholder="Иванов Иван Иванович" autocomplete="off">
+      <div class="field-hint" id="identFioHint">Введите ФИО (кириллица/латиница, пробелы, дефис)</div>
+    </div>
+    <div class="field-group">
+      <label for="identGroup">Группа *</label>
+      <input type="text" id="identGroup" placeholder="ИС-21-1" autocomplete="off">
+      <div class="field-hint" id="identGroupHint">Введите номер учебной группы</div>
+    </div>
+    <div class="field-group">
+      <label>Дата выполнения</label>
+      <input type="text" id="identDate" disabled>
+    </div>
+    <button id="identStartBtn" class="btn btn-primary btn-large" disabled>Начать работу</button>
+  </div>
+</div>
+
+<!-- ===================== ШАПКА ПРИЛОЖЕНИЯ ===================== -->
+<header class="app-header">
+  <div class="header-left">
+    <span class="logo">🚌 Bus Simulator</span>
+  </div>
+  <nav class="tabs" id="tabsNav">
+    <button class="tab-btn active" data-module="m1" title="Конструктор шины адреса">1. Адрес</button>
+    <button class="tab-btn" data-module="m2" title="Конструктор шины данных">2. Данные</button>
+    <button class="tab-btn" data-module="m3" title="Цикл чтения/записи, тайминг-диаграмма">3. Цикл</button>
+    <button class="tab-btn" data-module="m4" title="Арбитраж и конфликты шины">4. Арбитраж</button>
+    <button class="tab-btn" data-module="m5" title="Декодер адресного пространства">5. Карта</button>
+    <button class="tab-btn" data-module="m6" title="Логический дешифратор адреса и поиск неисправностей">6. Дешифратор</button>
+    <button class="tab-btn" data-module="m7" title="Способы обмена: опрос, прерывания, DMA">7. Ввод-вывод</button>
+    <button class="tab-btn" data-module="m8" title="Архитектуры и эволюция шин">8. Архитектуры</button>
+    <button class="tab-btn" data-module="m9" title="Цикл выполнения команд процессора на шине">9. ЦП</button>
+  </nav>
+  <div class="header-right">
+    <div class="test-counter" id="testCounter" title="Счётчик контрольных вопросов">Тест: 0/5</div>
+    <div class="student-badge" id="studentBadge" title="Нажмите на карандаш, чтобы исправить данные">
+      <span id="studentBadgeText">—</span>
+      <button id="studentEditBtn" class="icon-btn" title="Редактировать ФИО/группу">✎</button>
+    </div>
+    <button id="reportBtn" class="btn btn-accent" title="Сформировать PDF-отчёт по результатам работы">📄 Отчёт PDF</button>
+  </div>
+</header>
+
+<!-- ===================== ОСНОВНАЯ ОБЛАСТЬ МОДУЛЕЙ ===================== -->
+<main class="app-main">
+
+  <!-- ---------- МОДУЛЬ 1: КОНСТРУКТОР ШИНЫ АДРЕСА ---------- -->
+  <section class="module" id="m1" data-module="m1">
+    <h2>Модуль 1. Конструктор шины адреса</h2>
+    <p class="module-desc">Разрядность шины адреса определяет максимальный объём памяти, который процессор может адресовать: <b>Объём = 2<sup>N</sup> байт</b>.</p>
+
+    <div class="bus-scheme" id="m1Scheme">
+      <div class="scheme-block cpu-block">ЦП</div>
+      <div class="bus-lines" id="m1BusLines"></div>
+      <div class="scheme-block mem-block">
+        <div>Память</div>
+        <div class="mem-map" id="m1MemMap">
+          <div class="mem-map-fill" id="m1MemMapFill"></div>
+          <div class="mem-map-label mem-map-label-top" id="m1MemMapTop">0xFFFF</div>
+          <div class="mem-map-label mem-map-label-bottom" id="m1MemMapBottom">0x0000</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls-row">
+      <div class="control-box">
+        <label for="m1Slider">Разрядность шины адреса: <span id="m1BitsValue" class="value-chip">16</span> бит
+          <span class="tooltip-icon" title="Количество параллельных проводников для передачи адреса ячейки памяти">?</span>
+        </label>
+        <input type="range" id="m1Slider" min="4" max="32" step="1" value="16">
+      </div>
+    </div>
+
+    <div class="result-row">
+      <div class="result-card">
+        <div class="result-formula">Объём адресуемой памяти = 2<sup id="m1BitsFormula">16</sup> байт</div>
+        <div class="result-value" id="m1MemResult">65 536 байт</div>
+        <div class="result-sub" id="m1MemResultConverted">= 64 КБ</div>
+      </div>
+      <div class="result-card">
+        <div class="result-label">Диапазон адресов (текущая разрядность)</div>
+        <div class="result-value mono" id="m1RangeFrom">0x0000</div>
+        <div class="result-sub">…</div>
+        <div class="result-value mono" id="m1RangeTo">0xFFFF</div>
+      </div>
+    </div>
+
+    <div class="sub-panel">
+      <h3>Ввод конкретного адреса</h3>
+      <div class="controls-row">
+        <div class="control-box">
+          <label for="m1AddrFormat">Формат ввода</label>
+          <select id="m1AddrFormat">
+            <option value="hex">HEX</option>
+            <option value="dec">DEC</option>
+          </select>
+        </div>
+        <div class="control-box">
+          <label for="m1AddrInput">Адрес <span class="tooltip-icon" title="Введите адрес — приложение покажет, как он раскладывается по битам шины">?</span></label>
+          <input type="text" id="m1AddrInput" placeholder="например, A3F">
+          <div class="field-hint" id="m1AddrHint"></div>
+        </div>
+      </div>
+      <div class="bit-visualizer" id="m1BitVisualizer"></div>
+    </div>
+
+    <div class="sub-panel">
+      <h3>Обратная задача</h3>
+      <div class="controls-row">
+        <div class="control-box">
+          <label for="m1ReverseSize">Нужный объём памяти</label>
+          <input type="number" id="m1ReverseSize" placeholder="например, 16" min="0" step="any">
+        </div>
+        <div class="control-box">
+          <label for="m1ReverseUnit">Единица измерения</label>
+          <select id="m1ReverseUnit">
+            <option value="1">байт</option>
+            <option value="1024">КБ</option>
+            <option value="1048576" selected>МБ</option>
+            <option value="1073741824">ГБ</option>
+            <option value="1099511627776">ТБ</option>
+          </select>
+        </div>
+      </div>
+      <div class="result-card" id="m1ReverseResult">Введите нужный объём памяти, чтобы узнать минимальную разрядность шины.</div>
+    </div>
+
+    <div class="module-nav">
+      <button class="btn btn-secondary" id="m1Continue">Перейти к контрольному вопросу →</button>
+    </div>
+  </section>
+
+  <!-- ---------- МОДУЛЬ 2: КОНСТРУКТОР ШИНЫ ДАННЫХ ---------- -->
+  <section class="module hidden" id="m2" data-module="m2">
+    <h2>Модуль 2. Конструктор шины данных</h2>
+    <p class="module-desc">Разрядность шины данных и тактовая частота определяют пропускную способность: <b>Пропускная способность = Разрядность (бит) × Частота / 8</b>.</p>
+
+    <div class="bus-scheme" id="m2Scheme">
+      <div class="scheme-block cpu-block">ЦП</div>
+      <div class="bus-lines data-lines" id="m2BusLines"></div>
+      <div class="scheme-block mem-block">Память / Устройство</div>
+    </div>
+
+    <div class="controls-row">
+      <div class="control-box">
+        <label>Разрядность шины данных <span class="tooltip-icon" title="Количество бит, передаваемых параллельно за один такт">?</span></label>
+        <div class="preset-buttons" id="m2PresetButtons">
+          <button class="preset-btn" data-bits="4">4</button>
+          <button class="preset-btn active" data-bits="8">8</button>
+          <button class="preset-btn" data-bits="16">16</button>
+          <button class="preset-btn" data-bits="32">32</button>
+          <button class="preset-btn" data-bits="64">64</button>
+        </div>
+        <input type="range" id="m2BitsSlider" min="1" max="128" step="1" value="8">
+        <div class="value-chip" id="m2BitsValue">8 бит</div>
+      </div>
+      <div class="control-box">
+        <label for="m2FreqSlider">Тактовая частота: <span id="m2FreqValue" class="value-chip">100</span> МГц
+          <span class="tooltip-icon" title="Количество тактов шины в секунду, миллионы герц">?</span>
+        </label>
+        <input type="range" id="m2FreqSlider" min="1" max="1000" step="1" value="100">
+      </div>
+    </div>
+
+    <div class="sub-panel">
+      <h3>Передача файла</h3>
+      <div class="controls-row">
+        <div class="control-box">
+          <label for="m2FileSize">Объём передаваемых данных (МБ)</label>
+          <input type="number" id="m2FileSize" value="1" min="0.001" step="any">
+        </div>
+        <div class="control-box">
+          <button class="btn btn-primary" id="m2StartTransfer">▶ Запустить передачу</button>
+        </div>
+      </div>
+      <div class="result-row">
+        <div class="result-card">
+          <div class="result-label">Количество передач</div>
+          <div class="result-value" id="m2Transfers">—</div>
+        </div>
+        <div class="result-card">
+          <div class="result-label">Пропускная способность</div>
+          <div class="result-value" id="m2Throughput">—</div>
+        </div>
+        <div class="result-card">
+          <div class="result-label">Время передачи</div>
+          <div class="result-value" id="m2Time">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sub-panel">
+      <h3>Гонка шин: 8 бит vs 64 бит</h3>
+      <div class="race-track">
+        <div class="race-lane">
+          <div class="race-label">8 бит</div>
+          <div class="race-bar-bg"><div class="race-bar" id="m2Race8"></div></div>
+          <div class="race-time" id="m2Race8Time">0.0 мс</div>
+        </div>
+        <div class="race-lane">
+          <div class="race-label">64 бит</div>
+          <div class="race-bar-bg"><div class="race-bar race-bar-fast" id="m2Race64"></div></div>
+          <div class="race-time" id="m2Race64Time">0.0 мс</div>
+        </div>
+      </div>
+      <button class="btn btn-secondary" id="m2StartRace">🏁 Запустить гонку (1 МБ при 100 МГц)</button>
+    </div>
+
+    <div class="sub-panel">
+      <h3>Мультиплексированная / немультиплексированная шина</h3>
+      <div class="toggle-row">
+        <label class="switch">
+          <input type="checkbox" id="m2MuxToggle">
+          <span class="slider-visual"></span>
+        </label>
+        <span id="m2MuxLabel">Немультиплексированная (адрес и данные — раздельные линии, одновременно)</span>
+        <span class="tooltip-icon" title="В мультиплексированной шине адрес и данные передаются по одним и тем же проводникам поочерёдно, разделяя время на фазы">?</span>
+      </div>
+      <div class="mux-diagram" id="m2MuxDiagram"></div>
+      <div class="result-card" id="m2MuxPenalty" style="margin-top:12px;"></div>
+    </div>
+
+    <div class="sub-panel">
+      <h3>Пакетный режим (burst) и накладные расходы адресной фазы
+        <span class="tooltip-icon" title="В обычном режиме каждое слово требует отдельной фазы адреса и фазы данных. В пакетном режиме адрес передаётся один раз, а за ним идут подряд несколько фаз данных.">?</span>
+      </h3>
+      <p class="module-desc">Формула «разрядность × частота / 8» описывает <i>теоретический</i> максимум. В реальном цикле часть тактов уходит на передачу адреса, поэтому эффективная пропускная способность ниже.</p>
+      <div class="controls-row">
+        <div class="control-box">
+          <label for="m2BurstLine">Длина пакета (байт)</label>
+          <select id="m2BurstLine">
+            <option value="16">16 байт (4 слова по 32 бита)</option>
+            <option value="32">32 байта</option>
+            <option value="64" selected>64 байта (типичная линия кэша)</option>
+          </select>
+        </div>
+      </div>
+      <div class="burst-grid" id="m2BurstGrid"></div>
+      <div class="result-row" id="m2BurstResult"></div>
+    </div>
+
+    <div class="sub-panel">
+      <h3>Выравнивание доступа (unaligned access)
+        <span class="tooltip-icon" title="Если слово не выровнено по границе, краткой своей ширине, оно пересекает границу двух слов и требует двух обращений к памяти">?</span>
+      </h3>
+      <p class="module-desc">32-битная шина читает слово за один цикл, только если адрес кратен 4. Невыровненный доступ пересекает границу — и требует второго цикла.</p>
+      <div class="controls-row">
+        <div class="control-box">
+          <label for="m2AlignOffset">Смещение в слове (байт)</label>
+          <input type="range" id="m2AlignOffset" min="0" max="7" step="1" value="0">
+          <div class="value-chip" id="m2AlignOffsetValue">0</div>
+        </div>
+        <div class="control-box">
+          <label for="m2AlignSize">Размер читаемых данных</label>
+          <select id="m2AlignSize">
+            <option value="1">1 байт</option>
+            <option value="2">2 байта (halfword)</option>
+            <option value="4" selected>4 байта (слово)</option>
+            <option value="8">8 байт (doubleword)</option>
+          </select>
+        </div>
+      </div>
+      <div class="byte-lane-title">Шина данных: <span id="m2AlignBusWidth">8</span> байт за передачу</div>
+      <div class="byte-lanes" id="m2AlignLanes"></div>
+      <div class="result-card" id="m2AlignResult"></div>
+    </div>
+
+    <div class="sub-panel">
+      <h3>Порядок байтов: little-endian / big-endian
+        <span class="tooltip-icon" title="Определяет, какой байт многобайтового числа хранится по младшему адресу — младший (little) или старший (big)">?</span>
+      </h3>
+      <div class="controls-row">
+        <div class="control-box">
+          <label for="m2EndianValue">32-битное значение (HEX)</label>
+          <input type="text" id="m2EndianValue" value="12345678" maxlength="8">
+          <div class="field-hint" id="m2EndianHint"></div>
+        </div>
+        <div class="control-box">
+          <label>Порядок байтов</label>
+          <div class="preset-buttons" id="m2EndianButtons">
+            <button class="preset-btn active" data-endian="little">little-endian</button>
+            <button class="preset-btn" data-endian="big">big-endian</button>
+          </div>
+        </div>
+      </div>
+      <div class="byte-lanes" id="m2EndianLanes"></div>
+      <div class="result-card" id="m2EndianResult"></div>
+    </div>
+
+    <div class="sub-panel">
+      <h3>🎯 Задача: спроектируй шину под ограничения</h3>
+      <p class="module-desc">Заданы требования. Подберите минимальные разрядности шин адреса и данных, при которых оба ограничения выполняются одновременно.</p>
+      <div class="constraints-box">
+        <div class="constraint-row"><span>Требуемый объём памяти:</span><b>≥ 256 МБ</b></div>
+        <div class="constraint-row"><span>Требуемая пропускная способность:</span><b>≥ 500 МБ/с</b> при <b>100 МГц</b></div>
+      </div>
+      <div class="controls-row">
+        <div class="control-box">
+          <label for="m2DesignAddr">Разрядность шины адреса: <span id="m2DesignAddrValue" class="value-chip">16</span> бит</label>
+          <input type="range" id="m2DesignAddr" min="4" max="40" step="1" value="16">
+        </div>
+        <div class="control-box">
+          <label for="m2DesignData">Разрядность шины данных: <span id="m2DesignDataValue" class="value-chip">8</span> бит</label>
+          <input type="range" id="m2DesignData" min="4" max="128" step="4" value="8">
+        </div>
+      </div>
+      <div class="design-checks" id="m2DesignChecks"></div>
+    </div>
+
+    <div class="module-nav">
+      <button class="btn btn-secondary" id="m2Continue">Перейти к контрольному вопросу →</button>
+    </div>
+  </section>
+
+  <!-- ---------- МОДУЛЬ 3: ЦИКЛ ЧТЕНИЯ/ЗАПИСИ ---------- -->
+  <section class="module hidden" id="m3" data-module="m3">
+    <h2>Модуль 3. Цикл чтения/записи (тайминг-диаграмма)</h2>
+    <p class="module-desc">Согласованная работа шины адреса, шины данных и шины управления во времени — ключевой механизм обмена данными между ЦП и памятью.</p>
+
+    <div class="bus-scheme m3-scheme" id="m3Scheme">
+      <div class="scheme-block cpu-block">ЦП</div>
+      <div class="bus-lines-group">
+        <div class="bus-line-row">
+          <span class="bus-line-tag addr-tag">Адрес</span>
+          <div class="bus-line-visual addr-line" id="m3AddrLine"></div>
+        </div>
+        <div class="bus-line-row">
+          <span class="bus-line-tag data-tag">Данные</span>
+          <div class="bus-line-visual data-line" id="m3DataLine"></div>
+        </div>
+        <div class="bus-line-row">
+          <span class="bus-line-tag ctrl-tag">RD/WR</span>
+          <div class="bus-line-visual ctrl-line" id="m3CtrlLine"></div>
+        </div>
+      </div>
+      <div class="scheme-block mem-block" id="m3MemBlock">
+        <div>Память</div>
+        <div class="mem-map" id="m3MemMap"><div class="mem-cell-highlight" id="m3CellHighlight"></div></div>
+      </div>
+    </div>
+
+    <div class="step-explanation" id="m3StepExplanation">Выберите тип цикла и нажмите «Старт», чтобы начать симуляцию.</div>
+
+    <div class="controls-row">
+      <button class="btn btn-primary" id="m3StartRead">▶ Старт цикла чтения</button>
+      <button class="btn btn-primary" id="m3StartWrite">▶ Старт цикла записи</button>
+      <button class="btn btn-secondary" id="m3StepBtn" disabled>Шаг →</button>
+      <button class="btn btn-secondary" id="m3AutoBtn" disabled>Авто ▶</button>
+      <label class="control-inline">Скорость:
+        <input type="range" id="m3SpeedSlider" min="200" max="2000" step="100" value="900">
+      </label>
+    </div>
+
+    <div class="toggle-row">
+      <label class="switch">
+        <input type="checkbox" id="m3SyncToggle" checked>
+        <span class="slider-visual"></span>
+      </label>
+      <span id="m3SyncLabel">Синхронная шина (цикл привязан к тактовому генератору CLK)</span>
+      <span class="tooltip-icon" title="Асинхронная шина завершает цикл по сигналу готовности READY/ACK, а не по фиксированному числу тактов">?</span>
+    </div>
+
+    <div class="controls-row">
+      <div class="control-box">
+        <label for="m3WaitSlider">Такты ожидания памяти (wait states): <span id="m3WaitValue" class="value-chip">0</span>
+          <span class="tooltip-icon" title="Медленная память не успевает за тактовым генератором и вставляет такты ожидания: ЦП удерживает сигнал и ждёт, пока READY станет активным">?</span>
+        </label>
+        <input type="range" id="m3WaitSlider" min="0" max="3" step="1" value="0">
+      </div>
+    </div>
+
+    <div class="timing-diagram-wrap">
+      <canvas id="m3TimingCanvas" width="900" height="260"></canvas>
+    </div>
+
+    <div class="result-card" id="m3CycleCounter">Циклов выполнено: 0 (чтение: 0, запись: 0)</div>
+
+    <div class="module-nav">
+      <button class="btn btn-secondary" id="m3Continue">Перейти к контрольному вопросу →</button>
+    </div>
+  </section>
+
+  <!-- ---------- МОДУЛЬ 4: АРБИТРАЖ И КОНФЛИКТЫ ШИНЫ ---------- -->
+  <section class="module hidden" id="m4" data-module="m4">
+    <h2>Модуль 4. Арбитраж и конфликты шины</h2>
+    <p class="module-desc">Шина данных двунаправленная: несколько устройств физически могут выставить на неё сигнал одновременно, что приводит к конфликту (bus contention). Поэтому доступ к шине регулируется арбитром через третьестабильные (tri-state) буферы.</p>
+
+    <div class="arbiter-scheme">
+      <div class="master-device" data-device="cpu">
+        <div class="device-label">ЦП</div>
+        <label class="switch small">
+          <input type="checkbox" class="enable-toggle" id="m4EnableCpu" data-device="cpu">
+          <span class="slider-visual"></span>
+        </label>
+        <div class="device-hint">Enable</div>
+      </div>
+      <div class="master-device" data-device="dma">
+        <div class="device-label">Контроллер DMA</div>
+        <label class="switch small">
+          <input type="checkbox" class="enable-toggle" id="m4EnableDma" data-device="dma">
+          <span class="slider-visual"></span>
+        </label>
+        <div class="device-hint">Enable</div>
+      </div>
+      <div class="master-device" data-device="core2">
+        <div class="device-label">Второе ядро</div>
+        <label class="switch small">
+          <input type="checkbox" class="enable-toggle" id="m4EnableCore2" data-device="core2">
+          <span class="slider-visual"></span>
+        </label>
+        <div class="device-hint">Enable</div>
+      </div>
+    </div>
+
+    <div class="shared-bus-visual" id="m4SharedBus">
+      <div class="shared-bus-line" id="m4BusLine"></div>
+    </div>
+
+    <div class="result-card" id="m4StatusCard">Шина свободна. Включите Enable только одного устройства, чтобы корректно передать данные.</div>
+
+    <div class="sub-panel">
+      <h3>Арбитр шины</h3>
+      <p class="module-desc">Арбитр отслеживает запросы на доступ и разрешает выход на шину только одному устройству за раз — остальные ждут (их буферы остаются в Z-состоянии, высокоимпедансном «отключённом» режиме).</p>
+      <div class="arbiter-flow">
+        <div class="arbiter-flow-step">Устройство запрашивает доступ (Bus Request)</div>
+        <div class="arbiter-flow-arrow">→</div>
+        <div class="arbiter-flow-step">Шина занята? <span class="flow-sub">если да — ждать (retry)</span></div>
+        <div class="arbiter-flow-arrow">→</div>
+        <div class="arbiter-flow-step">Арбитр выдаёт Bus Grant одному устройству по приоритету</div>
+        <div class="arbiter-flow-arrow">→</div>
+        <div class="arbiter-flow-step">Устройство переводит буфер из Z в активное состояние и работает с шиной</div>
+      </div>
+    </div>
+
+    <div class="module-nav">
+      <button class="btn btn-secondary" id="m4Continue">Перейти к контрольному вопросу →</button>
+    </div>
+  </section>
+
+  <!-- ---------- МОДУЛЬ 5: ДЕКОДЕР АДРЕСНОГО ПРОСТРАНСТВА ---------- -->
+  <section class="module hidden" id="m5" data-module="m5">
+    <h2>Модуль 5. Декодер адресного пространства (карта памяти)</h2>
+    <p class="module-desc">Общая шина адреса разрядностью <b id="m5TotalBits">16</b> бит задаёт адресное пространство <b id="m5TotalSize">64 КБ</b>. Разместите устройства на шкале адресов без пересечений.</p>
+
+    <div class="m5-layout">
+      <div class="m5-devices-pool" id="m5DevicesPool">
+        <div class="device-block" draggable="true" data-device-id="rom" data-size="4096" style="background:#8e44ad">
+          ПЗУ<br><span class="device-size-label">4 КБ</span>
+        </div>
+        <div class="device-block" draggable="true" data-device-id="ram" data-size="32768" style="background:#2ecc71">
+          ОЗУ<br><span class="device-size-label">32 КБ</span>
+        </div>
+        <div class="device-block" draggable="true" data-device-id="io" data-size="1024" style="background:#e67e22">
+          Порт ввода-вывода<br><span class="device-size-label">1 КБ</span>
+        </div>
+      </div>
+
+      <div class="m5-address-scale" id="m5AddressScale">
+        <div class="scale-top-label" id="m5ScaleTop">0xFFFF</div>
+        <div class="scale-drop-zone" id="m5DropZone"></div>
+        <div class="scale-bottom-label" id="m5ScaleBottom">0x0000</div>
+      </div>
+    </div>
+
+    <div class="result-card" id="m5ConflictWarning" style="display:none;">⚠ Конфликт адресов: диапазоны устройств пересекаются!</div>
+
+    <div class="sub-panel">
+      <h3>Итоговая таблица распределения памяти</h3>
+      <table class="result-table" id="m5ResultTable">
+        <thead><tr><th>Устройство</th><th>Начальный адрес</th><th>Конечный адрес</th><th>Размер</th></tr></thead>
+        <tbody id="m5ResultTableBody"><tr><td colspan="4" class="muted">Разместите устройства на шкале, чтобы увидеть таблицу.</td></tr></tbody>
+      </table>
+      <p class="module-desc" id="m5ChipSelectExplain"></p>
+    </div>
+
+    <div class="sub-panel">
+      <h3>Отображение ввода-вывода: единое пространство и изолированное
+        <span class="tooltip-icon" title="Memory-mapped: порты входят в общее адресное пространство и доступны обычными командами памяти. Isolated: отдельное пространство портов, доступ по сигналу M/IO командами IN/OUT">?</span>
+      </h3>
+      <div class="toggle-row">
+        <label class="switch">
+          <input type="checkbox" id="m5IoModeToggle">
+          <span class="slider-visual"></span>
+        </label>
+        <span id="m5IoModeLabel">Память отображена в общее адресное пространство (memory-mapped I/O)</span>
+      </div>
+      <div class="io-space-visual" id="m5IoSpaceVisual"></div>
+      <div class="result-card" id="m5IoExplain"></div>
+    </div>
+
+    <div class="module-nav">
+      <button class="btn btn-secondary" id="m5Continue">Перейти к контрольному вопросу →</button>
+    </div>
+  </section>
+
+  <!-- ---------- МОДУЛЬ 6: ДЕШИФРАТОР АДРЕСА + ПОИСК НЕИСПРАВНОСТИ ---------- -->
+  <section class="module hidden" id="m6" data-module="m6">
+    <h2>Модуль 6. Логический дешифратор адреса (Chip Select)</h2>
+    <p class="module-desc">Схема дешифрации — это набор вентилей И, которые проверяют старшие биты адреса. Если все они совпали с требуемыми, формируется сигнал <b>CS</b> (Chip Select) и устройство выходит на шину. Младшие биты дешифратор не проверяет — они выбирают ячейку внутри устройства.</p>
+
+    <div class="controls-row">
+      <div class="control-box">
+        <label for="m6Device">Устройство на 16-битной шине адреса</label>
+        <select id="m6Device"></select>
+      </div>
+      <div class="control-box">
+        <label for="m6Addr">Адрес на шине (HEX)</label>
+        <input type="text" id="m6Addr" value="0000" maxlength="4">
+        <div class="field-hint" id="m6AddrHint"></div>
+      </div>
+    </div>
+
+    <div class="decoder-eq" id="m6Eq"></div>
+    <div class="decoder-bits" id="m6Bits"></div>
+    <div class="decoder-gate" id="m6Gate"></div>
+    <div class="result-card" id="m6Verdict"></div>
+
+    <div class="sub-panel">
+      <h3>🔍 Задача: найди неисправность</h3>
+      <p class="module-desc">В схеме «залипла» одна линия адреса (постоянно 0 или постоянно 1). По симптому определите, какая именно.</p>
+      <div class="fault-symptom" id="m6FaultSymptom"></div>
+      <div class="controls-row">
+        <div class="control-box">
+          <label for="m6FaultBit">Залипла линия</label>
+          <select id="m6FaultBit"></select>
+        </div>
+        <div class="control-box">
+          <label for="m6FaultValue">Уровень, на котором залипла</label>
+          <select id="m6FaultValue">
+            <option value="0">постоянно 0</option>
+            <option value="1">постоянно 1</option>
+          </select>
+        </div>
+        <div class="control-box">
+          <button class="btn btn-primary" id="m6FaultCheck">Проверить диагноз</button>
+        </div>
+      </div>
+      <div class="result-card" id="m6FaultVerdict"></div>
+    </div>
+
+    <div class="module-nav">
+      <button class="btn btn-secondary" id="m6Continue">Перейти к модулю 7 →</button>
+    </div>
+  </section>
+
+  <!-- ---------- МОДУЛЬ 7: СПОСОБЫ ОБМЕНА ---------- -->
+  <section class="module hidden" id="m7" data-module="m7">
+    <h2>Модуль 7. Способы обмена: программный опрос, прерывания, DMA</h2>
+    <p class="module-desc">Шина одна и та же — различается то, как ЦП узнаёт о готовности устройства. Сравним, сколько тактов процессора уходит на передачу одного и того же объёма данных.</p>
+
+    <div class="controls-row">
+      <div class="control-box">
+        <label for="m7Size">Объём передачи (байт)</label>
+        <input type="number" id="m7Size" value="1024" min="1" step="1">
+      </div>
+      <div class="control-box">
+        <label for="m7DeviceSpeed">Скорость устройства: тактов на байт <span class="tooltip-icon" title="Сколько тактов шины устройство тратит, чтобы подготовить очередной байт">?</span></label>
+        <input type="range" id="m7DeviceSpeed" min="10" max="100" step="5" value="50">
+        <div class="value-chip" id="m7DeviceSpeedValue">50</div>
+      </div>
+      <div class="control-box">
+        <button class="btn btn-primary" id="m7Run">▶ Сравнить</button>
+      </div>
+    </div>
+
+    <div class="io-bars" id="m7Bars"></div>
+
+    <table class="result-table" id="m7Table">
+      <thead><tr><th>Способ</th><th>Тактов ЦП</th><th>Доля занятости ЦП</th><th>Особенность</th></tr></thead>
+      <tbody id="m7TableBody"></tbody>
+    </table>
+
+    <div class="result-card" id="m7Verdict"></div>
+  </section>
+
+  <!-- ---------- МОДУЛЬ 8: АРХИТЕКТУРЫ ---------- -->
+  <section class="module hidden" id="m8" data-module="m8">
+    <h2>Модуль 8. Архитектуры и эволюция шин</h2>
+    <p class="module-desc">Фон-неймановская архитектура использует одну общую шину для команд и данных, гарвардская — две раздельные. Отсюда разница в скорости и в нагрузке на шину.</p>
+
+    <div class="controls-row">
+      <div class="control-box">
+        <label>Архитектура</label>
+        <div class="preset-buttons" id="m8ArchButtons">
+          <button class="preset-btn active" data-arch="von">Фон Нейман</button>
+          <button class="preset-btn" data-arch="harvard">Гарвардская</button>
+        </div>
+      </div>
+      <div class="control-box">
+        <label for="m8Ops">Операций в программе: <span id="m8OpsValue" class="value-chip">1000</span></label>
+        <input type="range" id="m8Ops" min="100" max="5000" step="100" value="1000">
+      </div>
+    </div>
+
+    <div class="arch-strip" id="m8Strip"></div>
+    <div class="result-card" id="m8Verdict"></div>
+
+    <div class="sub-panel">
+      <h3>Почему параллельные шины уступили последовательным</h3>
+      <p class="module-desc">На высокой частоте сигналы в параллельных линиях приходят с разной задержкой (<b>skew</b>), и приёмник не может достоверно защёлкнуть слово. Синхронизировать десятки линий дороже, чем одну быструю. Так PCI уступил место PCI Express.</p>
+      <table class="result-table" id="m8PcieTable">
+        <thead><tr><th>Шина</th><th>Разрядность</th><th>Частота</th><th>Пропускная способность</th><th>Ключевая проблема</th></tr></thead>
+        <tbody>
+          <tr><td>PCI 32-bit</td><td>32 линии</td><td>33 МГц</td><td>133 МБ/с</td><td>Перекос сигналов при повышении частоты</td></tr>
+          <tr><td>PCI 64-bit</td><td>64 линии</td><td>66 МГц</td><td>533 МБ/с</td><td>Много выводов, дорогая трассировка</td></tr>
+          <tr><td>PCIe 1.0 x1</td><td>1 линия (последовательная)</td><td>2,5 ГТ/с</td><td>≈250 МБ/с</td><td>Нет перекоса: одна линия синхронизируется сама с собой</td></tr>
+          <tr><td>PCIe 3.0 x16</td><td>16 линий</td><td>8 ГТ/с</td><td>≈15,75 ГБ/с</td><td>Масштабируется числом линий, а не шириной</td></tr>
+        </tbody>
+      </table>
+      <p class="module-desc">Идея та же, что в Модуле 2: чтобы поднять пропускную способность, можно либо расширять шину, либо ускорять её. На больших частотах расширять перестаёт работать, и остаётся только ускорять — по одной линии.</p>
+    </div>
+  </section>
+
+  <!-- ---------- МОДУЛЬ 9: РАБОТА ЦП НА ШИНЕ ---------- -->
+  <section class="module hidden" id="m9" data-module="m9">
+    <h2>Модуль 9. Работа ЦП: цикл команды на шине</h2>
+    <p class="module-desc">Процессор выполняет программу тактами шины: <b>выборка</b> читает код операции и операнды по адресу PC, <b>декодирование</b> — внутренний шаг без обращения к шине, <b>исполнение</b> — обращение к данным. Система команд учебная: 7 команд и один аккумулятор A.</p>
+
+    <div class="controls-row">
+      <div class="control-box">
+        <label for="m9Program">Программа</label>
+        <select id="m9Program">
+          <option value="sum">Сумма двух ячеек (LDA, ADD, STA, HLT)</option>
+          <option value="jump">С переходом (LDA, JMP, ADD, STA, HLT)</option>
+        </select>
+      </div>
+      <div class="control-box">
+        <label><input type="checkbox" id="m9IntToggle"> Внешнее прерывание</label>
+      </div>
+      <div class="control-box">
+        <label for="m9IntAfter">Момент прерывания</label>
+        <select id="m9IntAfter" disabled></select>
+      </div>
+    </div>
+    <p class="module-desc" id="m9Desc"></p>
+
+    <div class="controls-row">
+      <button class="btn btn-primary" id="m9Step">Шаг →</button>
+      <button class="btn btn-secondary" id="m9Auto">Авто ▶</button>
+      <button class="btn btn-secondary" id="m9Reset">Сброс</button>
+    </div>
+
+    <div class="cpu-grid">
+      <div class="result-card"><div class="result-label">Регистры</div><div id="m9Regs"></div></div>
+      <div class="result-card"><div class="result-label">Шины на текущем такте</div><div id="m9Bus"></div></div>
+      <div class="result-card"><div class="result-label">Фаза</div><div class="phase-chips" id="m9Phases"></div></div>
+    </div>
+
+    <div class="sub-panel">
+      <h3>Программа в памяти</h3>
+      <table class="result-table">
+        <thead><tr><th>Адрес</th><th>Байты</th><th>Команда</th><th>Тактов шины</th><th>Комментарий</th></tr></thead>
+        <tbody id="m9ListingBody"></tbody>
+      </table>
+    </div>
+
+    <div class="sub-panel">
+      <h3>Трасса шинных циклов</h3>
+      <div class="trace-wrap">
+        <table class="result-table">
+          <thead><tr><th>#</th><th>Фаза</th><th>Адрес</th><th>Данные</th><th>Сигнал</th><th>Что происходит</th></tr></thead>
+          <tbody id="m9TraceBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="result-card" id="m9Summary"></div>
+  </section>
+
+</main>
+
+<!-- ===================== ВСПЛЫВАЮЩАЯ КАРТОЧКА КОНТРОЛЬНОГО ВОПРОСА ===================== -->
+<div class="quiz-overlay hidden" id="quizOverlay">
+  <div class="quiz-card" id="quizCard"></div>
+</div>
+
+<!-- ===================== МОДАЛЬНОЕ ОКНО ОТЧЁТА ===================== -->
+<div class="report-overlay hidden" id="reportOverlay">
+  <div class="report-modal">
+    <h3>Отчёт сформирован</h3>
+    <p id="reportModalText">PDF-файл отчёта скачивается автоматически.</p>
+    <button class="btn btn-primary" id="reportModalClose">Закрыть</button>
+  </div>
+</div>
+
+<script src="jspdf.umd.min.js"></script>
+<script src="html2canvas.min.js"></script>
+<script src="fonts.js"></script>
+<script src="app.js"></script>
+<script src="cpu.js"></script>
+</body>
+</html>
